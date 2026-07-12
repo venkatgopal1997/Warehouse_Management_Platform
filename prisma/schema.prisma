@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organisation {
+  id         String      @id @default(cuid())
+  name       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  users      User[]
+  warehouses Warehouse[]
+
+  @@map("organisations")
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  role           Role
+  workosUserId   String?       @unique @map("workos_user_id")
+  organisationId String        @map("organisation_id")
+  organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  movements      StockMovement[]
+
+  @@index([organisationId])
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  WAREHOUSE_MANAGER
+  OPERATOR
+}
+
+model Warehouse {
+  id             String          @id @default(cuid())
+  name           String
+  location       String
+  capacity       Int
+  organisationId String          @map("organisation_id")
+  organisation   Organisation    @relation(fields: [organisationId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  inventoryItems InventoryItem[]
+
+  @@index([organisationId])
+  @@map("warehouses")
+}
+
+model InventoryItem {
+  id          String          @id @default(cuid())
+  sku         String
+  name        String
+  quantity    Int             @default(0)
+  warehouseId String          @map("warehouse_id")
+  warehouse   Warehouse       @relation(fields: [warehouseId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  movements   StockMovement[]
+
+  @@unique([sku, warehouseId])
+  @@index([warehouseId])
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id              String        @id @default(cuid())
+  type            MovementType
+  quantity        Int
+  inventoryItemId String        @map("inventory_item_id")
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  operatorId      String        @map("operator_id")
+  operator        User          @relation(fields: [operatorId], references: [id])
+  timestamp       DateTime      @default(now())
+  notes           String?
+
+  @@index([inventoryItemId])
+  @@index([operatorId])
+  @@index([timestamp])
+  @@map("stock_movements")
+}
+
+enum MovementType {
+  INBOUND
+  OUTBOUND
+}

@@ -1,21 +1,43 @@
 {
-  "name": "warehouse_management_platform",
+  "name": "warehouse-management-platform",
   "version": "1.0.0",
-  "description": "Warehouse Management Platform",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "sync:bigquery": "tsx scripts/sync-to-bigquery.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/venkatgopal1997/Warehouse_Management_Platform.git"
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.5.0",
+    "@prisma/client": "^6.9.0",
+    "@workos-inc/node": "^7.36.0",
+    "ag-grid-community": "^32.0.0",
+    "ag-grid-react": "^32.0.0",
+    "next": "15.3.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.12.0",
+    "zod": "^3.23.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/venkatgopal1997/Warehouse_Management_Platform/issues"
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "prisma": "^6.9.0",
+    "tailwindcss": "^3.4.4",
+    "tsx": "^4.15.0",
+    "typescript": "^5.4.5"
   },
-  "homepage": "https://github.com/venkatgopal1997/Warehouse_Management_Platform#readme"
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }
