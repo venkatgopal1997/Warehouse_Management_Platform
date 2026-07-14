@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { assertPermission } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-
+export const dynamic = "force-dynamic";
 // GET /api/analytics — fetch analytics data
 // In production: reads from BigQuery
 // In local dev (no BigQuery configured): falls back to Postgres/SQLite

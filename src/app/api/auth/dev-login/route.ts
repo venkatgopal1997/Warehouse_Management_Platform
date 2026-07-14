@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
+export const dynamic = "force-dynamic";
 
 // Dev-only login route — bypasses WorkOS for local development
 // In production, this should be disabled or protected

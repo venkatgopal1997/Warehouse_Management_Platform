@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { assertPermission } from "@/lib/rbac";
 import { z } from "zod";
+export const dynamic = "force-dynamic";
 
 const createInventorySchema = z.object({
   sku: z.string().min(1).max(50),

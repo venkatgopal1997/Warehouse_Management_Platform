@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { assertPermission } from "@/lib/rbac";
 import { MovementType } from "@prisma/client";
 import { z } from "zod";
+export const dynamic = "force-dynamic";
 
 const createMovementSchema = z.object({
   type: z.nativeEnum(MovementType),
