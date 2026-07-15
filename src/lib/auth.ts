@@ -1,17 +1,5 @@
-import { WorkOS } from "@workos-inc/node";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY!);
-const clientId = process.env.WORKOS_CLIENT_ID!;
-
-export function getWorkOS() {
-  return workos;
-}
-
-export function getClientId() {
-  return clientId;
-}
 
 export async function getSession() {
   const cookieStore = await cookies();

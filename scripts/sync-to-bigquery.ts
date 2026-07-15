@@ -1,8 +1,20 @@
 /**
  * Sync script: Postgres → BigQuery
  *
- * Uses streaming inserts (insertAll) instead of load jobs.
- * WRITE_TRUNCATE is achieved by deleting all rows first, then inserting.
+ * Architecture Decision: Cloud Scheduler + Cloud Run Job (scheduled batch sync)
+ *
+ * Trade-offs:
+ * - Latency: ~15 min stale data (acceptable for analytics dashboards)
+ * - Durability: Full snapshot on each run — idempotent, recoverable from any failure
+ * - Complexity: Single script, no message queues or CDC infra
+ * - Cost: Minimal — one Cloud Run Job invocation every 15 min
+ *
+ * Alternatives considered:
+ * - Pub/Sub event-driven: Lower latency but higher complexity, requires change tracking
+ * - Datastream (CDC): Near real-time but overkill for this scale, expensive
+ * - Dual-write: Lowest latency but couples transactional path to analytics, risk of inconsistency
+ *
+ * This approach is idempotent: running it twice produces the same result (WRITE_TRUNCATE).
  */
 
 import { BigQuery } from "@google-cloud/bigquery";
@@ -16,47 +28,16 @@ const bigquery = new BigQuery({
 const DATASET = process.env.BIGQUERY_DATASET || "warehouse_analytics";
 
 async function ensureDataset() {
-  const dataset = bigquery.dataset(DATASET);
-  const [exists] = await dataset.exists();
+  const [datasets] = await bigquery.getDatasets();
+  const exists = datasets.some((d) => d.id === DATASET);
   if (!exists) {
-    await bigquery.createDataset(DATASET, { location: "asia-south1" });
+    await bigquery.createDataset(DATASET);
     console.log(`Created dataset: ${DATASET}`);
   }
 }
 
-async function ensureTable(tableName: string, schema: object[]) {
-  const table = bigquery.dataset(DATASET).table(tableName);
-  const [exists] = await table.exists();
-  if (!exists) {
-    await bigquery.dataset(DATASET).createTable(tableName, { schema: { fields: schema } });
-    console.log(`  Created table: ${tableName}`);
-  }
-}
-
-async function truncateTable(tableName: string) {
-  const query = `DELETE FROM \`${process.env.GOOGLE_CLOUD_PROJECT}.${DATASET}.${tableName}\` WHERE true`;
-  await bigquery.query({ query });
-}
-
 async function syncInventorySnapshot() {
   console.log("Syncing inventory snapshot...");
-
-  const schema = [
-    { name: "item_id", type: "STRING" },
-    { name: "sku", type: "STRING" },
-    { name: "item_name", type: "STRING" },
-    { name: "quantity", type: "INTEGER" },
-    { name: "warehouse_id", type: "STRING" },
-    { name: "warehouse_name", type: "STRING" },
-    { name: "warehouse_location", type: "STRING" },
-    { name: "warehouse_capacity", type: "INTEGER" },
-    { name: "organisation_id", type: "STRING" },
-    { name: "organisation_name", type: "STRING" },
-    { name: "synced_at", type: "TIMESTAMP" },
-  ];
-
-  await ensureTable("inventory_snapshot", schema);
-  await truncateTable("inventory_snapshot");
 
   const items = await prisma.inventoryItem.findMany({
     include: {
@@ -65,11 +46,6 @@ async function syncInventorySnapshot() {
       },
     },
   });
-
-  if (items.length === 0) {
-    console.log("  No inventory items to sync.");
-    return;
-  }
 
   const rows = items.map((item) => ({
     item_id: item.id,
@@ -86,35 +62,22 @@ async function syncInventorySnapshot() {
   }));
 
   const table = bigquery.dataset(DATASET).table("inventory_snapshot");
-  await table.insert(rows);
 
-  console.log(`  Synced ${rows.length} inventory items`);
+  // WRITE_TRUNCATE makes this idempotent — full replacement each sync
+  const [job] = await table.load(
+    Buffer.from(rows.map((r) => JSON.stringify(r)).join("\n")),
+    {
+      sourceFormat: "NEWLINE_DELIMITED_JSON",
+      writeDisposition: "WRITE_TRUNCATE",
+      autodetect: true,
+    }
+  );
+
+  console.log(`  Synced ${rows.length} inventory items (job: ${job.id})`);
 }
 
 async function syncStockMovements() {
   console.log("Syncing stock movements...");
-
-  const schema = [
-    { name: "movement_id", type: "STRING" },
-    { name: "movement_type", type: "STRING" },
-    { name: "quantity", type: "INTEGER" },
-    { name: "timestamp", type: "TIMESTAMP" },
-    { name: "notes", type: "STRING" },
-    { name: "sku", type: "STRING" },
-    { name: "item_name", type: "STRING" },
-    { name: "inventory_item_id", type: "STRING" },
-    { name: "warehouse_id", type: "STRING" },
-    { name: "warehouse_name", type: "STRING" },
-    { name: "organisation_id", type: "STRING" },
-    { name: "organisation_name", type: "STRING" },
-    { name: "operator_id", type: "STRING" },
-    { name: "operator_name", type: "STRING" },
-    { name: "operator_email", type: "STRING" },
-    { name: "synced_at", type: "TIMESTAMP" },
-  ];
-
-  await ensureTable("stock_movements", schema);
-  await truncateTable("stock_movements");
 
   const movements = await prisma.stockMovement.findMany({
     include: {
@@ -128,11 +91,6 @@ async function syncStockMovements() {
       operator: true,
     },
   });
-
-  if (movements.length === 0) {
-    console.log("  No movements to sync.");
-    return;
-  }
 
   const rows = movements.map((m) => ({
     movement_id: m.id,
@@ -153,15 +111,18 @@ async function syncStockMovements() {
     synced_at: new Date().toISOString(),
   }));
 
-  // Insert in batches of 500 (BigQuery streaming insert limit)
   const table = bigquery.dataset(DATASET).table("stock_movements");
-  const batchSize = 500;
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize);
-    await table.insert(batch);
-  }
 
-  console.log(`  Synced ${rows.length} stock movements`);
+  const [job] = await table.load(
+    Buffer.from(rows.map((r) => JSON.stringify(r)).join("\n")),
+    {
+      sourceFormat: "NEWLINE_DELIMITED_JSON",
+      writeDisposition: "WRITE_TRUNCATE",
+      autodetect: true,
+    }
+  );
+
+  console.log(`  Synced ${rows.length} stock movements (job: ${job.id})`);
 }
 
 async function main() {

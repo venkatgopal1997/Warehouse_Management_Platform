@@ -59,10 +59,10 @@ async function getStockLevelsFromDB(organisationId: string) {
     },
   });
 
-  return warehouses.map((w) => ({
+  return warehouses.map((w: { name: string; location: string; inventoryItems: { quantity: number; id: string }[] }) => ({
     warehouse_name: w.name,
     warehouse_location: w.location,
-    total_stock: w.inventoryItems.reduce((sum, i) => sum + i.quantity, 0),
+    total_stock: w.inventoryItems.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0),
     unique_items: w.inventoryItems.length,
   }));
 }
@@ -158,7 +158,7 @@ async function getLowStockFromDB(organisationId: string) {
     orderBy: { quantity: "asc" },
   });
 
-  return items.map((i) => ({
+  return items.map((i: { sku: string; name: string; quantity: number; warehouse: { name: string } }) => ({
     sku: i.sku,
     item_name: i.name,
     warehouse_name: i.warehouse.name,
