@@ -9,8 +9,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // For development: direct login by email (bypasses WorkOS)
-  async function handleDevLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -47,27 +46,7 @@ export default function LoginPage() {
           Warehouse Management Platform
         </p>
 
-        {/* WorkOS AuthKit Login */}
-        <a
-          href="/api/auth/login"
-          className="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 transition-colors mb-4"
-        >
-          Sign in with WorkOS
-        </a>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-gray-50 px-2 text-gray-400">
-              or dev login
-            </span>
-          </div>
-        </div>
-
-        {/* Dev login form (for local development without WorkOS) */}
-        <form onSubmit={handleDevLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -88,11 +67,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-gray-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50 transition-colors"
+            className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Signing in..." : "Dev Login (email only)"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <p className="mt-6 text-xs text-center text-gray-400">
+          Use seeded emails: admin@coastal.test, manager@meridian.test, etc.
+        </p>
       </div>
     </main>
   );
